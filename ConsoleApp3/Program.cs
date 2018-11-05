@@ -13,6 +13,7 @@ using System.Net;
 using System.Net.Mail;
 using System.Threading;
 
+
 namespace ConsoleApp3
 {
     class Program
@@ -55,10 +56,10 @@ namespace ConsoleApp3
                     ApplicationName = "awolr.com"
                 });
 
-                sendemail();
+                //sendemail();
                 //watch();
                 //stop();
-                //history();
+                history();
                 //test();
 
             }
@@ -123,6 +124,7 @@ namespace ConsoleApp3
             return null;
         }
 
+        // used to read database and send messages
         public static bool checkemaildb(EmailContext db, out Email outemail)
         {
             Email email = db.Emails.FirstOrDefault();
@@ -136,75 +138,45 @@ namespace ConsoleApp3
                 outemail = null;
                 return false;
             }
+        }
+
+        public static bool checkhistoryiddb(EmailContext db, out HistoryID outhistoryid)
+        {
+            HistoryID historyid = db.HistoryIDs.LastOrDefault();
+            if (historyid != null)
+            {
+                outhistoryid = historyid;
+                return true;
+            }
+            else
+            {
+                outhistoryid = null;
+                return false;
+            }
 
         }
 
         public static void sendemail()
         {
-            EmailContext db = new EmailContext();
-            Email email = null;
-            var client = new SmtpClient("smtp.gmail.com", 587)
+            while (true)
             {
-                Credentials = new NetworkCredential("admin@awolr.com", "passWord321$"),
-                EnableSsl = true
-            };
-
-            try
-            {
-
-                while (checkemaildb(db, out email))
+                System.Threading.Thread.Sleep(10000);
+                EmailContext db = new EmailContext();
+                Email email = null;
+                var client = new SmtpClient("smtp.gmail.com", 587)
                 {
-                    client.Send(email.fromaddress, email.toaddress, email.subject, email.emailbody);
-                    loggerwrapper.PickAndExecuteLogging("send email record " + email.Id);
+                    Credentials = new NetworkCredential("admin@awolr.com", "passWord321$"),
+                    EnableSsl = true
+                };
 
-                }
-            }
-            catch (Exception e)
-            {
-
-            }
-
-
-
-
-        }
-
-
-        public static void fullsync(List<Message> messagelist)
-        {
-
-        }
-
-
-        public static void history()
-        {
-            string nexthistoryid = null;
-            EmailContext db = new EmailContext();
-            List<HistoryID> histories = db.HistoryIDs.ToList();
-            List<Message> messagelist = new List<Message>();
-            foreach (HistoryID historyid in histories)
-            {
-
-                long id = historyid.History;
                 try
                 {
 
-                    ulong historyid_start_conversionresult;
-                    List<History> result = null;
-                    try
+                    while (checkemaildb(db, out email))
                     {
-                        historyid_start_conversionresult = Convert.ToUInt64(id);
-                        result = ListHistory(service, "admin@awolr.com", historyid_start_conversionresult, messagelist);
+                        client.Send(email.fromaddress, email.toaddress, email.subject, email.emailbody);
+                        loggerwrapper.PickAndExecuteLogging("send email record " + email.Id);
 
-                    }
-                    catch (OverflowException)
-                    {
-                        Console.WriteLine("{0} is outside the range of the UInt64 type.", historyid);
-                    }
-                    if (result != null)
-                    {
-
-                        //loggerWrapper.PickAndExecuteLogging("Was able to retrieve history" + id.ToString());
                     }
                 }
                 catch (Exception e)
@@ -212,8 +184,177 @@ namespace ConsoleApp3
 
                 }
             }
+        }
+
+
+        public static bool fullsync(out List<Message> messagelist, out ulong? historyid)
+        {
+
+            messagelist = null;
+            List<Message> result = new List<Message>();
+            List<Message> fullmessageobjects = new List<Message>();
+            EmailContext db = new EmailContext();
+            UsersResource.MessagesResource.ListRequest request = service.Users.Messages.List(userId);
+            db.Database.ExecuteSqlCommand("TRUNCATE TABLE [HistoryID]");
+            historyid = 0;
+            do
+            {
+                try
+                {
+                    ListMessagesResponse response = request.Execute();
+                    result.AddRange(response.Messages);
+                    request.PageToken = response.NextPageToken;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("An error occurred: " + e.Message);
+                    return false;
+                }
+            } while (!String.IsNullOrEmpty(request.PageToken));
+
+            if (result != null)
+            {
+                bool once = false;
+                foreach (Message message in result)
+                {
+                    try
+                    {
+                        var fullmessageobject = service.Users.Messages.Get(userId, message.Id).Execute();
+                        if (!once)
+                        {
+                            historyid = fullmessageobject.HistoryId;
+                            once = true;
+                        }
+
+                        if (!fullmessageobject.LabelIds.Contains("SENT") && fullmessageobject.Payload.Headers[19].Value.Contains("AwolrID:"))
+                        {
+
+                            fullmessageobjects.Add(fullmessageobject);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("An error occurred: " + e.Message);
+                        return false;
+                    }
+                }
+            }
+
+
+            messagelist = fullmessageobjects;
+            return true;
+        }
+
+
+        public static void history()
+        {
+
+
+            System.Threading.Thread thread = new System.Threading.Thread(sendemail);
+            thread.Start();
+
+            EmailContext db = new EmailContext();
+            List<HistoryID> histories = db.HistoryIDs.ToList();
+            List<Message> messagelist = new List<Message>();
+            ulong? newesthistoryid;
+
+            //email all history ids being processed
+
+            bool synced = fullsync(out messagelist, out newesthistoryid);
+            bool allrecordsmarkedasprocessed = true;
+
+            if (synced)
+            {
+                foreach (Message message in messagelist)
+                {
+                    int index = message.Payload.Headers[19].Value.IndexOf("AwolrID:");
+                    int length = message.Payload.Headers[19].Value.Length - 1;
+                    string subjectline = message.Payload.Headers[19].Value.Substring((index + 8), length);
+                    //write to database
+                    // Decode
+                    //var encodedString2 = "SGVsbG8gQmFzZTY0VXJsIGVuY29kaW5nIQ";
+                    //var bytes2 = Base64Url.Decode(encodedString2);
+                    //WriteLine(System.Text.Encoding.UTF8.GetString(bytes2)); // Hello Base64Url encoding!
+
+
+                    ModifyMessageRequest mods = new ModifyMessageRequest();
+                    List<String> addedlabels = new List<String> { "Label_5558979356135685998" };
+                    List<String> removedlabels = new List<String> { };
+                    mods.AddLabelIds = addedlabels;
+                    mods.RemoveLabelIds = removedlabels;
+
+                    try
+                    {
+                        service.Users.Messages.Modify(mods, userId, message.Id).Execute();
+                    }
+                    catch (Exception e)
+                    {
+                        allrecordsmarkedasprocessed = false;
+                        loggerwrapper.PickAndExecuteLogging("message could not be marked as processed. messageid " + message.Id + e.ToString());
+                    }
+                }
+
+
+            }
+            //foreach (HistoryID historyid in histories)
+            //{
+
+            //    long id = historyid.History;
+            //    try
+            //    {
+
+            //        ulong historyid_start_conversionresult;
+            //        List<History> result = null;
+            //        try
+            //        {
+            //            historyid_start_conversionresult = Convert.ToUInt64(id);
+            //            result = ListHistory(service, "admin@awolr.com", historyid_start_conversionresult, messagelist);
+
+            //        }
+            //        catch (OverflowException)
+            //        {
+            //            Console.WriteLine("{0} is outside the range of the UInt64 type.", historyid);
+            //        }
+            //        if (result != null)
+            //        {
+
+            //            //loggerWrapper.PickAndExecuteLogging("Was able to retrieve history" + id.ToString());
+            //        }
+            //    }
+            //    catch (Exception e)
+            //    {
+
+            //    }
+            //}
 
         }
+
+        public static byte[] Decode(string input)
+        {
+            var output = input;
+
+            output = output.Replace('-', '+'); // 62nd char of encoding
+            output = output.Replace('_', '/'); // 63rd char of encoding
+
+            switch (output.Length % 4) // Pad with trailing '='s
+            {
+                case 0:
+                    break; // No pad chars in this case
+                case 2:
+                    output += "==";
+                    break; // Two pad chars
+                case 3:
+                    output += "=";
+                    break; // One pad char
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(input), "Illegal base64url string!");
+            }
+            var converted = Convert.FromBase64String(output); // Standard base64 decoder
+
+            return converted;
+        }
+
 
         public static List<History> ListHistory(GmailService service, String userId, ulong startHistoryId, List<Message> messages)
         {
