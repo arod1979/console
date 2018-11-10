@@ -12,7 +12,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Mail;
 using System.Threading;
-
+using System.Threading.Tasks;
 
 namespace ConsoleApp3
 {
@@ -24,50 +24,74 @@ namespace ConsoleApp3
 
         public static string userId = "admin@awolr.com";
 
-
+        private static NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger();
         private static LoggerWrapper loggerwrapper = new LoggerWrapper();
 
-        static void Main(string[] args)
+
+        static void ReadMail()
         {
+            EmailContext db = new EmailContext();
+            Email email = new Email();
 
-            string[] Scopes = {"https://mail.google.com/",
-            "https://www.googleapis.com/auth/pubsub"};
-
-
-            string credPath = "token.json";
             try
             {
-                Stream filestream = new FileStream("credentials.json", FileMode.Open, FileAccess.Read);
-
-
-
-                credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
-                    GoogleClientSecrets.Load(filestream).Secrets,
-                    Scopes,
-                    "admin@awolr.com",
-                    CancellationToken.None,
-                    new FileDataStore(credPath, true)).Result;
-                Console.WriteLine("Credential file saved to: " + credPath);
-
-
-                service = new GmailService(new BaseClientService.Initializer()
+                for (int x = 0; x < 250; x++)
                 {
-                    HttpClientInitializer = credential,
-                    ApplicationName = "awolr.com"
-                });
-
-                //sendemail();
-                //watch();
-                //stop();
-                history();
-                //test();
-
+                    System.Threading.Thread.Sleep(2000);
+                    email = db.Emails.FirstOrDefault();
+                    Console.WriteLine("Read:" + email.Id.ToString());
+                    logger.Debug("Read:" + email.Id.ToString());
+                }
             }
             catch (Exception e)
             {
-                loggerwrapper.PickAndExecuteLogging("cannot initialize oauth" + e.ToString());
+                Console.WriteLine("Could not read email: " + e.ToString());
+                logger.Debug("Could not read email: " + e.ToString());
+            }
+
+
+
+        }
+
+        static void AddEmail()
+        {
+            EmailContext db = new EmailContext();
+            Email email = new Email();
+            email.emailbody = "123124234q45q345q";
+            email.EmailRecipientsId = 1;
+            email.fromaddress = "admin@awolr.com";
+            email.IdItem = 114;
+            email.ItemDescription = "asdfwef24234234";
+            email.subject = "asdfasdf525asdfasdfasdfasdfasdf11123525";
+            email.toaddress = "allanrodkin@gmail.com";
+
+            var client = new SmtpClient("smtp.gmail.com", 587)
+            {
+                Credentials = new NetworkCredential("admin@awolr.com", "passWord321$"),
+                EnableSsl = true
+            };
+
+            try
+            {
+                for (int x = 0; x < 250; x++)
+                {
+                    System.Threading.Thread.Sleep(2000);
+                    db.Emails.Add(email);
+                    db.SaveChanges();
+                    Console.WriteLine("Added email " + email.Id.ToString());
+                    logger.Debug("Added email " + email.Id.ToString() + "\n\n");
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Could not add email " + e.ToString());
+                logger.Debug("Could not add email " + e.ToString() + "\n\n");
             }
         }
+
+
+
+
 
         public static void test()
         {
@@ -93,7 +117,7 @@ namespace ConsoleApp3
             }
             catch (Exception e)
             {
-                loggerwrapper.PickAndExecuteLogging("cannot initiate watch request " + e.ToString());
+                logger.Debug("cannot initiate watch request " + e);
             }
         }
 
@@ -106,7 +130,7 @@ namespace ConsoleApp3
             }
             catch (Exception e)
             {
-                loggerwrapper.PickAndExecuteLogging("cannot initiate stop request " + e.ToString());
+                logger.Debug("cannot initiate stop request " + e);
             }
         }
 
@@ -118,7 +142,7 @@ namespace ConsoleApp3
             }
             catch (Exception e)
             {
-                Console.WriteLine("An error occurred: " + e.Message);
+                logger.Debug("An error occurred retrieving message from api: " + e);
             }
 
             return null;
@@ -127,75 +151,125 @@ namespace ConsoleApp3
         // used to read database and send messages
         public static bool checkemaildb(EmailContext db, out Email outemail)
         {
+            System.Threading.Thread.Sleep(5000);
             Email email = db.Emails.FirstOrDefault();
-            if (email != null)
+            outemail = null;
+            try
             {
-                outemail = email;
-                return true;
+
+                if (email != null)
+                {
+                    outemail = email;
+                    return true;
+                }
+                else
+                {
+
+                    return false;
+                }
             }
-            else
+            catch (Exception e)
             {
-                outemail = null;
+                logger.Debug("Error in checkmaildb:" + e);
                 return false;
             }
         }
 
-        public static bool checkhistoryiddb(EmailContext db, out HistoryID outhistoryid)
+        public static bool checkhistoryiddb(EmailContext db, out ulong? outhistoryid)
         {
-            HistoryID historyid = db.HistoryIDs.LastOrDefault();
-            if (historyid != null)
+            outhistoryid = 0;
+
+            HistoryID historyid = db.HistoryIDs.FirstOrDefault();
+
+            try
             {
-                outhistoryid = historyid;
-                return true;
+
+                if (historyid != null)
+                {
+                    outhistoryid = (ulong)historyid.History;
+
+                    return true;
+                }
+                else
+                {
+                    outhistoryid = null;
+                    return false;
+                }
             }
-            else
+            catch (Exception e)
             {
-                outhistoryid = null;
+                logger.Debug("Error in checkmaildb:" + e + "-------------------\n\n");
                 return false;
             }
 
         }
 
-        public static void sendemail()
+        public static void SendEmail()
         {
             while (true)
             {
-                System.Threading.Thread.Sleep(10000);
+                //System.Threading.Thread.Sleep(10000);
                 EmailContext db = new EmailContext();
                 Email email = null;
-                var client = new SmtpClient("smtp.gmail.com", 587)
-                {
-                    Credentials = new NetworkCredential("admin@awolr.com", "passWord321$"),
-                    EnableSsl = true
-                };
+                bool success2;
 
                 try
                 {
 
                     while (checkemaildb(db, out email))
                     {
-                        client.Send(email.fromaddress, email.toaddress, email.subject, email.emailbody);
-                        loggerwrapper.PickAndExecuteLogging("send email record " + email.Id);
+                        SendThroughGmail(db, email);
 
                     }
                 }
                 catch (Exception e)
                 {
-
+                    logger.Debug("failed to send email :" + e + "-------------------\n\n");
                 }
             }
         }
 
 
+
+        public static void SendThroughGmail(EmailContext db, Email email)
+        {
+            var client = new SmtpClient("smtp.gmail.com", 587)
+            {
+                Credentials = new NetworkCredential("admin@awolr.com", "passWord321$"),
+                EnableSsl = true
+            };
+
+
+
+            client.Send(email.fromaddress, email.toaddress, email.subject, email.emailbody);
+            //loggerwrapper.PickAndExecuteLogging("send email record " + email.Id);
+            db.Emails.Remove(email);
+            db.SaveChanges();
+            Console.WriteLine("Deleted email " + email.Id);
+
+        }
+
         public static bool fullsync(out List<Message> messagelist, out ulong? historyid)
         {
 
+            historyid = 666;
             messagelist = null;
             List<Message> result = new List<Message>();
             List<Message> fullmessageobjects = new List<Message>();
             EmailContext db = new EmailContext();
             UsersResource.MessagesResource.ListRequest request = service.Users.Messages.List(userId);
-            db.Database.ExecuteSqlCommand("TRUNCATE TABLE [HistoryID]");
+
+            try
+            {
+                db.Database.ExecuteSqlCommand("TRUNCATE TABLE [HistoryID]");
+
+            }
+            catch (Exception e)
+            {
+                logger.Debug("Could not truncate HistoryID table! \n\n" + e.ToString() + "--------------");
+                return false;
+            }
+
             historyid = 0;
             do
             {
@@ -207,7 +281,7 @@ namespace ConsoleApp3
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("An error occurred: " + e.Message);
+                    logger.Debug("An error occurred in full sync: " + e.ToString() + "--------------");
                     return false;
                 }
             } while (!String.IsNullOrEmpty(request.PageToken));
@@ -226,7 +300,9 @@ namespace ConsoleApp3
                             once = true;
                         }
 
-                        if (!fullmessageobject.LabelIds.Contains("SENT") && fullmessageobject.Payload.Headers[19].Value.Contains("AwolrID:"))
+                        Google.Apis.Gmail.v1.Data.MessagePartHeader subjectheader = fullmessageobject.Payload.Headers.Where(h => h.Name == "Subject").FirstOrDefault();
+                        fullmessageobject.Payload.Headers[0] = subjectheader;
+                        if (!fullmessageobject.LabelIds.Contains("SENT") && !fullmessageobject.LabelIds.Contains("Label_5558979356135685998") && subjectheader.Value.Contains("AwolrID:"))
                         {
 
                             fullmessageobjects.Add(fullmessageobject);
@@ -234,7 +310,7 @@ namespace ConsoleApp3
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine("An error occurred: " + e.Message);
+                        logger.Debug("An error occurred trying to get message from api or assign to internal list: " + e.ToString() + "--------------");
                         return false;
                     }
                 }
@@ -249,10 +325,6 @@ namespace ConsoleApp3
         public static void history()
         {
 
-
-            System.Threading.Thread thread = new System.Threading.Thread(sendemail);
-            thread.Start();
-
             EmailContext db = new EmailContext();
             List<HistoryID> histories = db.HistoryIDs.ToList();
             List<Message> messagelist = new List<Message>();
@@ -260,40 +332,99 @@ namespace ConsoleApp3
 
             //email all history ids being processed
 
-            bool synced = fullsync(out messagelist, out newesthistoryid);
-            bool allrecordsmarkedasprocessed = true;
-
-            if (synced)
+            while (true)
             {
-                foreach (Message message in messagelist)
+                System.Threading.Thread.Sleep(2000);
+
+                while (checkhistoryiddb(db, out newesthistoryid))
                 {
-                    int index = message.Payload.Headers[19].Value.IndexOf("AwolrID:");
-                    int length = message.Payload.Headers[19].Value.Length - 1;
-                    string subjectline = message.Payload.Headers[19].Value.Substring((index + 8), length);
-                    //write to database
-                    // Decode
-                    //var encodedString2 = "SGVsbG8gQmFzZTY0VXJsIGVuY29kaW5nIQ";
-                    //var bytes2 = Base64Url.Decode(encodedString2);
-                    //WriteLine(System.Text.Encoding.UTF8.GetString(bytes2)); // Hello Base64Url encoding!
 
+                    bool synced = fullsync(out messagelist, out newesthistoryid);
+                    bool allrecordsmarkedasprocessed = true;
 
-                    ModifyMessageRequest mods = new ModifyMessageRequest();
-                    List<String> addedlabels = new List<String> { "Label_5558979356135685998" };
-                    List<String> removedlabels = new List<String> { };
-                    mods.AddLabelIds = addedlabels;
-                    mods.RemoveLabelIds = removedlabels;
-
-                    try
+                    if (synced && messagelist.Count > 0)
                     {
-                        service.Users.Messages.Modify(mods, userId, message.Id).Execute();
-                    }
-                    catch (Exception e)
-                    {
-                        allrecordsmarkedasprocessed = false;
-                        loggerwrapper.PickAndExecuteLogging("message could not be marked as processed. messageid " + message.Id + e.ToString());
+                        foreach (Message message in messagelist)
+                        {
+                            string subjectline = message.Payload.Headers[0].Value;
+                            int index = subjectline.IndexOf("AwolrID:");
+                            string awolrid = message.Payload.Headers[0].Value.Substring(index + 8);
+                            string rebuild = subjectline.Substring(0, index - 1);
+                            //write to database
+                            // Decode
+                            string body = " ";
+                            var encodedString2 = message.Payload.Parts[0].Body.Data;
+                            if (encodedString2 != null)
+                            {
+                                var bytes2 = Decode(encodedString2);
+                                body = System.Text.Encoding.UTF8.GetString(bytes2); // Hello Base64Url encoding!
+                            }
+
+                            string to = null;
+                            try
+                            {
+
+                                EmailRecipients emailRecipients =
+                                db.EmailRecipients.Where(er => er.bidfakeemailaddress.Contains(awolrid) || er.pidfakeemailaddress.Contains(awolrid)).FirstOrDefault();
+
+                                if (emailRecipients.bidfakeemailaddress == awolrid)
+                                {
+                                    subjectline = rebuild + " AwolrID:" + emailRecipients.pidfakeemailaddress;
+                                    to = emailRecipients.bidrealemailaddress;
+                                }
+                                else
+                                {
+                                    subjectline = rebuild + " AwolrID:" + emailRecipients.bidfakeemailaddress;
+                                    to = emailRecipients.pidrealemailaddress;
+                                }
+
+                                try
+                                {
+                                    Email email = new Email();
+                                    email.emailbody = body;
+                                    email.EmailRecipientsId = emailRecipients.Id;
+                                    email.fromaddress = "admin@awolr.com";
+                                    email.toaddress = to;
+                                    email.IdItem = emailRecipients.IdItem;
+                                    email.subject = subjectline;
+                                    email.ItemDescription = subjectline;
+                                    db.Emails.Add(email);
+                                    db.SaveChanges();
+                                    Console.WriteLine("New Email Record Generated For Email " + email.Id);
+
+                                }
+                                catch (Exception e)
+                                {
+                                    logger.Debug("Could not create relay response email. Returning method" + e.ToString() + "--------------");
+                                    return;
+                                }
+                                ModifyMessageRequest mods = new ModifyMessageRequest();
+                                List<String> addedlabels = new List<String> { "Label_5558979356135685998" };
+                                List<String> removedlabels = new List<String> { };
+                                mods.AddLabelIds = addedlabels;
+                                mods.RemoveLabelIds = removedlabels;
+
+                                try
+                                {
+                                    service.Users.Messages.Modify(mods, userId, message.Id).Execute();
+                                }
+                                catch (Exception e)
+                                {
+                                    allrecordsmarkedasprocessed = false;
+
+                                    throw new Exception("message could not be marked as processed.messageid " + message.Id + e.ToString());
+                                }
+
+                            }
+                            catch (Exception e)
+                            {
+                                logger.Debug("message could not be marked as processed. messageid: " + message.Id + ":" + e.ToString() + "--------------");
+                            }
+
+
+                        }
                     }
                 }
-
 
             }
             //foreach (HistoryID historyid in histories)
@@ -399,6 +530,86 @@ namespace ConsoleApp3
             } while (!String.IsNullOrEmpty(request.PageToken));
 
             return result;
+        }
+
+
+        static void Main(string[] args)
+        {
+
+            string[] Scopes = {"https://mail.google.com/",
+            "https://www.googleapis.com/auth/pubsub"};
+
+
+            string credPath = "token.json";
+            try
+            {
+                Stream filestream = new FileStream("credentials.json", FileMode.Open, FileAccess.Read);
+
+
+
+                credential = GoogleWebAuthorizationBroker.AuthorizeAsync(
+                    GoogleClientSecrets.Load(filestream).Secrets,
+                            Scopes,
+                            "admin@awolr.com",
+                            CancellationToken.None,
+                            new FileDataStore(credPath, true)).Result;
+                Console.WriteLine("Credential file saved to: " + credPath);
+
+
+                service = new GmailService(new BaseClientService.Initializer()
+                {
+                    HttpClientInitializer = credential,
+                    ApplicationName = "awolr.com"
+                });
+
+                //watch();
+
+                //System.Threading.Thread thread = new System.Threading.Thread(AddEmail);
+                //thread.Start();
+
+                //            System.Threading.Thread thread2 = new System.Threading.Thread(ReadMail);
+                //thread2.Start();
+
+                System.Threading.Thread thread3 = new System.Threading.Thread(SendEmail);
+                thread3.Start();
+                //sendemail();
+
+                System.Threading.Thread thread4 = new System.Threading.Thread(SendGmail);
+                thread4.Start();
+
+                //stop();
+                history();
+                //test();
+
+            }
+            catch (Exception e)
+            {
+                logger.Debug("cannot initialize oauth" + e);
+            }
+        }
+
+        public static void SendGmail()
+        {
+            var clients = new SmtpClient("smtp.gmail.com", 587)
+            {
+                Credentials = new NetworkCredential("allanrodkin@gmail.com", "V1l0l5a4ayr"),
+                EnableSsl = true
+            };
+
+
+            while (true)
+            {
+                System.Threading.Thread.Sleep(5000);
+                try
+                {
+                    clients.Send("allanrodkin@gmail.com", "admin@awolr.com", "Message from awolr.com Lost Item 114 | Title: cell phone | Category:mobile device/tablets Description: brand new with pink case from bell: || AwolrID:0pz0zvw5.fgr", "testing");
+                }
+                catch (Exception e)
+                {
+
+                }
+            }
+
         }
 
     }
