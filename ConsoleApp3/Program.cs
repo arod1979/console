@@ -170,7 +170,7 @@ namespace ConsoleApp3
             }
             catch (Exception e)
             {
-                logger.Debug("Error in checkmaildb:" + e);
+                logger.Debug("Error in checkmaildb:" + e + "------------------\n\n");
                 return false;
             }
         }
@@ -266,7 +266,7 @@ namespace ConsoleApp3
             }
             catch (Exception e)
             {
-                logger.Debug("Could not truncate HistoryID table! \n\n" + e.ToString() + "--------------");
+                logger.Debug("Could not truncate HistoryID table! " + e.ToString() + "--------------\n\n");
                 return false;
             }
 
@@ -281,7 +281,7 @@ namespace ConsoleApp3
                 }
                 catch (Exception e)
                 {
-                    logger.Debug("An error occurred in full sync: " + e.ToString() + "--------------");
+                    logger.Debug("An error occurred in full sync: " + e.ToString() + "--------------\n\n");
                     return false;
                 }
             } while (!String.IsNullOrEmpty(request.PageToken));
@@ -310,7 +310,7 @@ namespace ConsoleApp3
                     }
                     catch (Exception e)
                     {
-                        logger.Debug("An error occurred trying to get message from api or assign to internal list: " + e.ToString() + "--------------");
+                        logger.Debug("An error occurred trying to get message from api or assign to internal list: " + e.ToString() + "-------------------\n\n");
                         return false;
                     }
                 }
@@ -395,7 +395,7 @@ namespace ConsoleApp3
                                 }
                                 catch (Exception e)
                                 {
-                                    logger.Debug("Could not create relay response email. Returning method" + e.ToString() + "--------------");
+                                    logger.Debug("Could not create relay response email. Returning method" + e.ToString() + "--------------\n\n");
                                     return;
                                 }
                                 ModifyMessageRequest mods = new ModifyMessageRequest();
@@ -418,7 +418,7 @@ namespace ConsoleApp3
                             }
                             catch (Exception e)
                             {
-                                logger.Debug("message could not be marked as processed. messageid: " + message.Id + ":" + e.ToString() + "--------------");
+                                logger.Debug("message could not be marked as processed. messageid: " + message.Id + ":" + e.ToString() + "--------------\n\n");
                             }
 
 
@@ -574,8 +574,8 @@ namespace ConsoleApp3
                 thread3.Start();
                 //sendemail();
 
-                System.Threading.Thread thread4 = new System.Threading.Thread(SendGmail);
-                thread4.Start();
+                //System.Threading.Thread thread4 = new System.Threading.Thread(SendGmail);
+                //thread4.Start();
 
                 //stop();
                 history();
@@ -584,7 +584,7 @@ namespace ConsoleApp3
             }
             catch (Exception e)
             {
-                logger.Debug("cannot initialize oauth" + e);
+                logger.Debug("cannot initialize oauth" + e + "-----------------\n\n");
             }
         }
 
