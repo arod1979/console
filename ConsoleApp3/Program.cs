@@ -567,18 +567,22 @@ namespace ConsoleApp3
                 //System.Threading.Thread thread = new System.Threading.Thread(AddEmail);
                 //thread.Start();
 
-                //            System.Threading.Thread thread2 = new System.Threading.Thread(ReadMail);
-                //thread2.Start();
 
-                System.Threading.Thread thread3 = new System.Threading.Thread(SendEmail);
-                thread3.Start();
+
+                //System.Threading.Thread thread3 = new System.Threading.Thread(SendEmail);
+                //thread3.Start();
                 //sendemail();
 
                 //System.Threading.Thread thread4 = new System.Threading.Thread(SendGmail);
                 //thread4.Start();
 
                 //stop();
-                history();
+
+                System.Threading.Thread thread2 = new System.Threading.Thread(SendEmail);
+                thread2.Start();
+
+                System.Threading.Thread thread9 = new System.Threading.Thread(history);
+                thread9.Start();
                 //test();
 
             }
