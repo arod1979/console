@@ -18,9 +18,10 @@ namespace ConsoleApp3
 {
     class Program
     {
-        public static GmailService service = null;
 
         public static UserCredential credential = null;
+
+        public static GmailService service = null;
 
         public static string userId = "admin@awolr.com";
 
@@ -65,11 +66,7 @@ namespace ConsoleApp3
             email.subject = "asdfasdf525asdfasdfasdfasdfasdf11123525";
             email.toaddress = "allanrodkin@gmail.com";
 
-            var client = new SmtpClient("smtp.gmail.com", 587)
-            {
-                Credentials = new NetworkCredential("admin@awolr.com", "passWord321$"),
-                EnableSsl = true
-            };
+
 
             try
             {
@@ -102,37 +99,9 @@ namespace ConsoleApp3
         }
 
 
-        public static void watch()
-        {
-            try
-            {
-                WatchRequest body = new WatchRequest()
-                {
-                    TopicName = "projects/awolr-213414/topics/awolr",
-                    LabelIds = new[] { "INBOX" }
-                };
-                string userId = "admin@awolr.com";
-                UsersResource.WatchRequest watchRequest = service.Users.Watch(body, userId);
-                WatchResponse test = watchRequest.Execute();
-            }
-            catch (Exception e)
-            {
-                logger.Debug("cannot initiate watch request " + e);
-            }
-        }
 
-        public static void stop()
-        {
-            try
-            {
-                UsersResource.StopRequest stopRequest = service.Users.Stop(userId);
-                string test = stopRequest.Execute();
-            }
-            catch (Exception e)
-            {
-                logger.Debug("cannot initiate stop request " + e);
-            }
-        }
+
+
 
         public static Message GetMessage(GmailService service, String userId, String messageId)
         {
@@ -178,11 +147,9 @@ namespace ConsoleApp3
         public static bool checkhistoryiddb(EmailContext db, out ulong? outhistoryid)
         {
             outhistoryid = 0;
-
-            HistoryID historyid = db.HistoryIDs.FirstOrDefault();
-
             try
             {
+                HistoryID historyid = db.HistoryIDs.FirstOrDefault();
 
                 if (historyid != null)
                 {
@@ -206,6 +173,12 @@ namespace ConsoleApp3
 
         public static void SendEmail()
         {
+            SmtpClient client = new SmtpClient("smtp.gmail.com", 587)
+            {
+                Credentials = new NetworkCredential("admin@awolr.com", "passWord321$"),
+                EnableSsl = true
+            };
+
             while (true)
             {
                 //System.Threading.Thread.Sleep(10000);
@@ -218,7 +191,7 @@ namespace ConsoleApp3
 
                     while (checkemaildb(db, out email))
                     {
-                        SendThroughGmail(db, email);
+                        SendThroughGmail(db, email, client);
 
                     }
                 }
@@ -231,15 +204,8 @@ namespace ConsoleApp3
 
 
 
-        public static void SendThroughGmail(EmailContext db, Email email)
+        public static void SendThroughGmail(EmailContext db, Email email, SmtpClient client)
         {
-            var client = new SmtpClient("smtp.gmail.com", 587)
-            {
-                Credentials = new NetworkCredential("admin@awolr.com", "passWord321$"),
-                EnableSsl = true
-            };
-
-
 
             client.Send(email.fromaddress, email.toaddress, email.subject, email.emailbody);
             //loggerwrapper.PickAndExecuteLogging("send email record " + email.Id);
@@ -334,7 +300,7 @@ namespace ConsoleApp3
 
             while (true)
             {
-                System.Threading.Thread.Sleep(2000);
+                //System.Threading.Thread.Sleep(2000);
 
                 while (checkhistoryiddb(db, out newesthistoryid))
                 {
