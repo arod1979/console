@@ -120,7 +120,7 @@ namespace ConsoleApp3
         // used to read database and send messages
         public static bool checkemaildb(EmailContext db, out Email outemail)
         {
-            System.Threading.Thread.Sleep(5000);
+
             Email email = db.Emails.FirstOrDefault();
             outemail = null;
             try
@@ -268,7 +268,7 @@ namespace ConsoleApp3
 
                         Google.Apis.Gmail.v1.Data.MessagePartHeader subjectheader = fullmessageobject.Payload.Headers.Where(h => h.Name == "Subject").FirstOrDefault();
                         fullmessageobject.Payload.Headers[0] = subjectheader;
-                        if (!fullmessageobject.LabelIds.Contains("SENT") && !fullmessageobject.LabelIds.Contains("Label_5558979356135685998") && subjectheader.Value.Contains("AwolrID:"))
+                        if (!fullmessageobject.LabelIds.Contains("SENT") && subjectheader.Value.Contains("AwolrID:"))
                         {
 
                             fullmessageobjects.Add(fullmessageobject);
@@ -364,21 +364,29 @@ namespace ConsoleApp3
                                     logger.Debug("Could not create relay response email. Returning method" + e.ToString() + "--------------\n\n");
                                     return;
                                 }
-                                ModifyMessageRequest mods = new ModifyMessageRequest();
-                                List<String> addedlabels = new List<String> { "Label_5558979356135685998" };
-                                List<String> removedlabels = new List<String> { };
-                                mods.AddLabelIds = addedlabels;
-                                mods.RemoveLabelIds = removedlabels;
+                                //ModifyMessageRequest mods = new ModifyMessageRequest();
+                                //List<String> addedlabels = new List<String> { "Label_5558979356135685998" };
+                                //List<String> removedlabels = new List<String> { };
+                                //mods.AddLabelIds = addedlabels;
+                                //mods.RemoveLabelIds = removedlabels;
 
+                                //try
+                                //{
+                                //    service.Users.Messages.Modify(mods, userId, message.Id).Execute();
+                                //}
+                                //catch (Exception e)
+                                //{
+                                //    allrecordsmarkedasprocessed = false;
+
+                                //    throw new Exception("message could not be marked as processed.messageid " + message.Id + e.ToString());
+                                //}
                                 try
                                 {
-                                    service.Users.Messages.Modify(mods, userId, message.Id).Execute();
+                                    service.Users.Messages.Delete(userId, message.Id).Execute();
                                 }
                                 catch (Exception e)
                                 {
-                                    allrecordsmarkedasprocessed = false;
-
-                                    throw new Exception("message could not be marked as processed.messageid " + message.Id + e.ToString());
+                                    logger.Debug("Could not delete processed email" + e.ToString());
                                 }
 
                             }
